@@ -1,0 +1,29 @@
+{
+  "name": "joba",
+  "version": "0.1.0",
+  "description": "Simple job (task) scheduler (manager).",
+  "main": "index.js",
+  "scripts": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/titarenko/joba.git"
+  },
+  "keywords": [
+    "job",
+    "task",
+    "scheduler",
+    "manager"
+  ],
+  "author": "Constantin Titarenko",
+  "license": "BSD",
+  "bugs": {
+    "url": "https://github.com/titarenko/joba/issues"
+  },
+  "homepage": "https://github.com/titarenko/joba",
+  "dependencies": {
+    "cron": "^1.0.5",
+    "debug": "^2.1.0",
+    "q": "^1.0.1"
+  }
+}
