@@ -55,31 +55,45 @@ Joba.prototype.handle = function handle (name, handler, exitOnFailure, logParams
 			params: logParams ? params : null
 		});
 		try {
-			handler(params).done(function taskSuccessHandler () {
-				debug('succeeded running', name);
-				updateWorklogItem.call(context, worklogItemPromise).then(function acknowledgeBus () {
-					ack();
-				});
-				if (context.pipes[name]) {
-					var newParams = Array.prototype.slice.call(arguments);
-					context.start(context.pipes[name], newParams);
-				}
-			}, function taskFailureHandler (error) {
-				debug('failed running', name, error);
-				updateWorklogItem.call(context, worklogItemPromise, error).then(function exitOrAcknowledgeBus () {
-					if (exitOnFailure) {
-						process.exit(75);
-					} else {
-						ack();
-					}
-				});
-			});
+			var successHandler = buildTaskSuccessHandler(context, name, worklogItemPromise, ack);
+			var errorHandler = buildTaskFailureHandler(context, name, worklogItemPromise, exitOnFailure, ack);
+			handler(params).done(successHandler, errorHandler);
 		} catch (error) {
 			debug('prematurely failed running', name, error);
 			updateWorklogItem.call(context, worklogItemPromise, error);
 		}
 	});
 };
+
+function buildTaskSuccessHandler (context, name, worklogItemPromise, ack) {
+	return function taskSuccessHandler (taskResult) {
+		debug('succeeding to run', name);
+		updateWorklogItem.call(context, worklogItemPromise).then(function acknowledgeBus () {
+			ack();
+			debug('succeeded running', name);
+		});
+		var destination = context.pipes[name];
+		if (destination) {
+			debug('piping', name, 'to', destination);
+			context.start(destination, taskResult);
+		}
+	};
+}
+
+function buildTaskFailureHandler (context, name, worklogItemPromise, exitOnFailure, ack) {
+	return function taskFailureHandler (error) {
+		debug('failing to run', name, error);
+		updateWorklogItem.call(context, worklogItemPromise, error).then(function exitOrAcknowledgeBus () {
+			if (exitOnFailure) {
+				debug('failed running', name, error, 'shutting down');
+				process.exit(75);
+			} else {
+				debug('failed running', name, error, 'but proceeding further');
+				ack();
+			}
+		});
+	};
+}
 
 function connect (provider) {
 	return require('joba-' + provider.name)(provider.connection);
@@ -88,10 +102,11 @@ function connect (provider) {
 function updateWorklogItem (worklogItemPromise, error) {
 	var context = this;
 	return worklogItemPromise.then(function whenHaveWorklogItem (item) {
-		return context.persistence.updateWorklogItem(item, {
+		var data = {
 			finished_at: new Date(),
 			error: error && error.stack || error
-		});
+		};
+		return context.persistence.updateWorklogItem(item, data);
 	});
 }
 
