@@ -20,12 +20,16 @@ var Joba = require('joba');
 var manager = new Joba({
 	persistence: {
 		name: 'pg',
-		connection: 'postgresql://root:root@localhost/tasks'
+		connection: {
+			uri: 'postgresql://user:password@server/db',
+			table: 'tasks'
+		}
 	},
 	bus: {
 		name: 'worque',
 		connection: {
-			login: 'guest',
+			host: 'server',
+			login: 'user',
 			password: 'password'
 		}
 	}
