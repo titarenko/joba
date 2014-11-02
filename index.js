@@ -19,6 +19,7 @@ function Joba (options) {
 	this.persistence = connect(options.persistence);
 	
 	this.tasks = {};
+	this.pipes = {};
 }
 
 Joba.prototype.schedule = function schedule (cronTime, name, params) {
@@ -40,14 +41,18 @@ Joba.prototype.start = function start (name, params) {
 	return this.bus.publish(name, params);
 };
 
-Joba.prototype.handle = function handle (name, handler, exitOnFailure) {
+Joba.prototype.pipe = function pipe (source, destination) {
+	this.pipes[source] = destination;
+};
+
+Joba.prototype.handle = function handle (name, handler, exitOnFailure, logParams) {
 	var context = this;
 	return context.bus.subscribe(name, function internalTaskHandler (params, ack) {
 		debug('running', name);
 		var worklogItemPromise = context.persistence.createWorklogItem({
 			name: name,
 			started_at: new Date(),
-			params: params
+			params: logParams ? params : null
 		});
 		try {
 			handler(params).done(function taskSuccessHandler () {
@@ -55,6 +60,10 @@ Joba.prototype.handle = function handle (name, handler, exitOnFailure) {
 				updateWorklogItem.call(context, worklogItemPromise).then(function acknowledgeBus () {
 					ack();
 				});
+				if (context.pipes[name]) {
+					var newParams = Array.prototype.slice.call(arguments);
+					context.start(context.pipes[name], newParams);
+				}
 			}, function taskFailureHandler (error) {
 				debug('failed running', name, error);
 				updateWorklogItem.call(context, worklogItemPromise, error).then(function exitOrAcknowledgeBus () {

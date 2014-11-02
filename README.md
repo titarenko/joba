@@ -76,9 +76,13 @@ Schedules task execution.
 
 Starts immediate task execution.
 
-### handle(name, handler[, exitOnFailure])
+### handle(name, handler[, exitOnFailure][, logParams])
 
-Specifies task handler (must return promise). If `exitOnFailure` is `true`, then app will exit with code `75` (temporary failure), allowing you to implement restart-on-error management policy for worker app.
+Specifies task handler (must return promise). If `exitOnFailure` is `true`, then app will exit with code `75` (temporary failure), allowing you to implement restart-on-error management policy for worker app. If `logParams` is `true` then params will be saved in the corresponding work log record.
+
+### pipe(source, destination)
+
+Takes results of `source` task and immediately starts `destination` task using them as `params`.
 
 ## License
 
