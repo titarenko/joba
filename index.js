@@ -2,16 +2,6 @@ var CronJob = require('cron').CronJob;
 var Promise = require('bluebird');
 var debug = require('debug')('joba');
 
-function isBusInstance (instance) {
-	return typeof instance.publish === 'function' && instance.publish.length === 2 &&
-		typeof instance.subscribe === 'function' && instance.subscribe.length === 2;
-}
-
-function isPersistenceInstance (instance) {
-	return typeof instance.createWorklogItem === 'function' && instance.createWorklogItem === 1 &&
-		typeof instance.updateWorklogItem === 'function' && instance.updateWorklogItem === 2;
-}
-
 function Joba (options) {
 	if (!options) {
 		throw new Error('missing options');
@@ -154,3 +144,17 @@ function handlePiping (context, name, taskResult) {
 }
 
 module.exports = Joba;
+
+function isFunctionWithArity (instance, arity) {
+	return typeof instance === 'function' && instance.length === arity;
+}
+
+function isBusInstance (instance) {
+	return isFunctionWithArity(instance.publish, 2) &&
+		isFunctionWithArity(instance.subscribe, 2);
+}
+
+function isPersistenceInstance (instance) {
+	return isFunctionWithArity(instance.createWorklogItem, 1) &&
+		isFunctionWithArity(instance.updateWorklogItem, 2);
+}
