@@ -1,5 +1,5 @@
 var CronJob = require('cron').CronJob;
-var Q = require('q');
+var Promise = require('bluebird');
 var debug = require('debug')('joba');
 
 function Joba (options) {
@@ -19,7 +19,10 @@ function Joba (options) {
 	this.persistence = connect(options.persistence);
 	
 	this.tasks = {};
-	this.pipes = {};
+
+	this.directPipes = {};
+	this.mapPipes = {};
+	this.spreadPipes = {};
 }
 
 Joba.prototype.schedule = function schedule (cronTime, name, params) {
@@ -27,7 +30,7 @@ Joba.prototype.schedule = function schedule (cronTime, name, params) {
 
 	var job = new CronJob(cronTime, function cronJobTickHandler () {
 		debug('trying to start', name);
-		var task = context.tasks[name] || Q();
+		var task = context.tasks[name] || Promise.resolve();
 		context.tasks[name] = task.then(function whenPreviousTickHandled () {
 			debug('starting', name);
 			return context.bus.publish(name, params);
@@ -42,7 +45,18 @@ Joba.prototype.start = function start (name, params) {
 };
 
 Joba.prototype.pipe = function pipe (source, destination) {
-	this.pipes[source] = destination;
+	if (typeof destination === 'object') {
+		switch (destination.opcode) {
+			case 'map':
+				this.mapPipes[source] = destination.names[0];
+				break;
+			case 'spread':
+				this.spreadPipes[source] = destination.names;
+				break;
+		}
+	} else if (typeof destination === 'string') {
+		this.directPipes[source] = destination;
+	}
 };
 
 Joba.prototype.handle = function handle (name, handler, exitOnFailure, logParams) {
@@ -52,11 +66,11 @@ Joba.prototype.handle = function handle (name, handler, exitOnFailure, logParams
 		var worklogItemPromise = context.persistence.createWorklogItem({
 			name: name,
 			started_at: new Date(),
-			params: logParams ? params : null
+			params: logParams === true ? params : null
 		});
 		try {
 			var successHandler = buildTaskSuccessHandler(context, name, worklogItemPromise, ack);
-			var errorHandler = buildTaskFailureHandler(context, name, worklogItemPromise, exitOnFailure, ack);
+			var errorHandler = buildTaskFailureHandler(context, name, params, logParams, worklogItemPromise, exitOnFailure, ack);
 			handler(params).done(successHandler, errorHandler);
 		} catch (error) {
 			debug('prematurely failed running', name, error);
@@ -67,31 +81,23 @@ Joba.prototype.handle = function handle (name, handler, exitOnFailure, logParams
 
 function buildTaskSuccessHandler (context, name, worklogItemPromise, ack) {
 	return function taskSuccessHandler (taskResult) {
-		debug('succeeding to run', name);
-		updateWorklogItem.call(context, worklogItemPromise).then(function acknowledgeBus () {
-			ack();
-			debug('succeeded running', name);
-		});
-		var destination = context.pipes[name];
-		if (destination) {
-			debug('piping', name, 'to', destination);
-			context.start(destination, taskResult);
-		}
+		ack();
+		debug('succeeded running', name);
+		updateWorklogItem.call(context, worklogItemPromise);
+		handlePiping(context, name, taskResult);
 	};
 }
 
-function buildTaskFailureHandler (context, name, worklogItemPromise, exitOnFailure, ack) {
+function buildTaskFailureHandler (context, name, params, logParams, worklogItemPromise, exitOnFailure, ack) {
 	return function taskFailureHandler (error) {
-		debug('failing to run', name, error);
-		updateWorklogItem.call(context, worklogItemPromise, error).then(function exitOrAcknowledgeBus () {
-			if (exitOnFailure) {
-				debug('failed running', name, error, 'shutting down');
-				process.exit(75);
-			} else {
-				debug('failed running', name, error, 'but proceeding further');
-				ack();
-			}
-		});
+		if (exitOnFailure) {
+			debug('failed running', name, error, 'shutting down');
+			process.exit(75);
+		} else {
+			debug('failed running', name, error, 'but proceeding further');
+			ack();
+		}
+		updateWorklogItem.call(context, worklogItemPromise, error, logParams !== false ? params : undefined);
 	};
 }
 
@@ -99,15 +105,42 @@ function connect (provider) {
 	return require('joba-' + provider.name)(provider.connection);
 }
 
-function updateWorklogItem (worklogItemPromise, error) {
+function updateWorklogItem (worklogItemPromise, error, params) {
 	var context = this;
 	return worklogItemPromise.then(function whenHaveWorklogItem (item) {
 		var data = {
 			finished_at: new Date(),
 			error: error && error.stack || error
 		};
+		if (params !== undefined) {
+			data.params = params;
+		}
 		return context.persistence.updateWorklogItem(item, data);
 	});
+}
+
+function handlePiping (context, name, taskResult) {
+	var destination = context.directPipes[name];
+	if (destination) {
+		debug('direct piping', name, 'to', destination);
+		return context.start(destination, taskResult);
+	}
+
+	var destination = context.mapPipes[name];
+	if (destination) {
+		debug('map piping', name, 'to', destination);
+		return taskResult.map(function resultItemMapper (item) {
+			return context.start(destination, item);
+		});
+	}
+
+	var destination = context.spreadPipes[name];
+	if (destination) {
+		debug('spread piping', name, 'to', destination);
+		return taskResult.map(function resultItemMapper (item, index) {
+			return context.start(destination[index], item);
+		});	
+	}
 }
 
 module.exports = Joba;
