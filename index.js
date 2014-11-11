@@ -73,6 +73,7 @@ Joba.prototype.handle = function handle (name, handler, exitOnFailure, logParams
 			var errorHandler = buildTaskFailureHandler(context, name, params, logParams, worklogItemPromise, exitOnFailure, ack);
 			handler(params).done(successHandler, errorHandler);
 		} catch (error) {
+			error = error && (error.stack || error.toString());
 			debug('prematurely failed running', name, error);
 			updateWorklogItem.call(context, worklogItemPromise, error);
 		}
@@ -90,14 +91,17 @@ function buildTaskSuccessHandler (context, name, worklogItemPromise, ack) {
 
 function buildTaskFailureHandler (context, name, params, logParams, worklogItemPromise, exitOnFailure, ack) {
 	return function taskFailureHandler (error) {
-		if (exitOnFailure) {
-			debug('failed running', name, error, 'shutting down');
-			process.exit(75);
-		} else {
-			debug('failed running', name, error, 'but proceeding further');
-			ack();
-		}
-		updateWorklogItem.call(context, worklogItemPromise, error, logParams !== false ? params : undefined);
+		error = error && (error.stack || error.toString());
+		params = logParams !== false ? params : undefined;
+		updateWorklogItem.call(context, worklogItemPromise, error, params).finally(function afterLogUpdated () {
+			if (exitOnFailure) {
+				debug('failed running', name, error, 'shutting down');
+				process.exit(75);
+			} else {
+				debug('failed running', name, error, 'but proceeding further');
+				ack();
+			}
+		});
 	};
 }
 
