@@ -96,6 +96,7 @@ function buildTaskFailureHandler (context, name, params, logParams, worklogItemP
 		updateWorklogItem.call(context, worklogItemPromise, error, params).finally(function afterLogUpdated () {
 			if (exitOnFailure) {
 				debug('failed running', name, error, 'shutting down');
+				ack();
 				process.exit(75);
 			} else {
 				debug('failed running', name, error, 'but proceeding further');
