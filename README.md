@@ -78,11 +78,33 @@ Starts immediate task execution.
 
 ### handle(name, handler[, exitOnFailure][, logParams])
 
-Specifies task handler (must return promise). If `exitOnFailure` is `true`, then app will exit with code `75` (temporary failure), allowing you to implement restart-on-error management policy for worker app. If `logParams` is `true` then params will be saved in the corresponding work log record.
+Specifies task handler (must return promise). If `exitOnFailure` is `true`, then app will exit with code `75` (temporary failure), allowing you to implement restart-on-error management policy for worker app. If `logParams` is `true` then params will be saved in the corresponding work log record, if `logParams` is omitted, then logging will happen only on error, otherwise (if `logParams === false`) no logging will happen at all.
 
 ### pipe(source, destination)
 
-Takes results of `source` task and immediately starts `destination` task using them as `params`.
+Passes output of one task to input(s) of another task(s). 
+
+If `destination` is string:
+
+```
+source -> destination
+```
+
+otherwise, if `destination` is object and `destination.opcode` is `map`:
+
+```
+source[0] -> destination.names[0]
+source[1] -> destination.names[0]
+source[2] -> destination.names[0]
+...
+```
+
+and if `destination.opcode` is 'spread':
+
+source[0] -> destination.names[0]
+source[1] -> destination.names[1]
+source[2] -> destination.names[2]
+...
 
 ## License
 
