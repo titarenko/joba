@@ -2,6 +2,16 @@ var CronJob = require('cron').CronJob;
 var Promise = require('bluebird');
 var debug = require('debug')('joba');
 
+function isBusInstance (instance) {
+	return typeof instance.publish === 'function' && instance.publish.length === 2 &&
+		typeof instance.subscribe === 'function' && instance.subscribe.length === 2;
+}
+
+function isPersistenceInstance (instance) {
+	return typeof instance.createWorklogItem === 'function' && instance.createWorklogItem === 1 &&
+		typeof instance.updateWorklogItem === 'function' && instance.updateWorklogItem === 2;
+}
+
 function Joba (options) {
 	if (!options) {
 		throw new Error('missing options');
@@ -15,8 +25,8 @@ function Joba (options) {
 		throw new Error('missing persistence option');
 	}
 
-	this.bus = connect(options.bus);
-	this.persistence = connect(options.persistence);
+	this.bus = isBusInstance(options.bus) ? options.bus : connect(options.bus);
+	this.persistence = isPersistenceInstance(options.persistence) ? options.persistence : connect(options.persistence);
 	
 	this.tasks = {};
 
