@@ -99,12 +99,14 @@ source[2] -> destination.names[0]
 ...
 ```
 
-and if `destination.opcode` is 'spread':
+and if `destination.opcode` is `spread`:
 
+```
 source[0] -> destination.names[0]
 source[1] -> destination.names[1]
 source[2] -> destination.names[2]
 ...
+```
 
 ## License
 
