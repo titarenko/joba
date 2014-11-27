@@ -1,6 +1,7 @@
 var CronJob = require('cron').CronJob;
 var Promise = require('bluebird');
 var debug = require('debug')('joba');
+var Pipe = require('./pipe');
 
 function Joba (options) {
 	if (!options) {
@@ -19,10 +20,7 @@ function Joba (options) {
 	this.persistence = isPersistenceInstance(options.persistence) ? options.persistence : connect(options.persistence);
 	
 	this.tasks = {};
-
-	this.directPipes = {};
-	this.mapPipes = {};
-	this.spreadPipes = {};
+	this.pipes = {};
 }
 
 Joba.prototype.schedule = function schedule (cronTime, name, params) {
@@ -33,7 +31,7 @@ Joba.prototype.schedule = function schedule (cronTime, name, params) {
 		var task = context.tasks[name] || Promise.resolve();
 		context.tasks[name] = task.then(function whenPreviousTickHandled () {
 			debug('starting', name);
-			return context.bus.publish(name, params);
+			return context.start(name, params);
 		});
 	});
 
@@ -45,18 +43,8 @@ Joba.prototype.start = function start (name, params) {
 };
 
 Joba.prototype.pipe = function pipe (source, destination) {
-	if (typeof destination === 'object') {
-		switch (destination.opcode) {
-			case 'map':
-				this.mapPipes[source] = destination.names[0];
-				break;
-			case 'spread':
-				this.spreadPipes[source] = destination.names;
-				break;
-		}
-	} else if (typeof destination === 'string') {
-		this.directPipes[source] = destination;
-	}
+	var pipe = this.pipes[source] = this.pipes[source] || new Pipe(this, source);
+	pipe.add(destination);
 };
 
 Joba.prototype.handle = function handle (name, handler, exitOnFailure, logParams) {
@@ -79,6 +67,8 @@ Joba.prototype.handle = function handle (name, handler, exitOnFailure, logParams
 		}
 	});
 };
+
+module.exports = Joba;
 
 function buildTaskSuccessHandler (context, name, worklogItemPromise, ack) {
 	return function taskSuccessHandler (taskResult) {
@@ -125,30 +115,11 @@ function updateWorklogItem (worklogItemPromise, error, params) {
 }
 
 function handlePiping (context, name, taskResult) {
-	var destination = context.directPipes[name];
+	var destination = context.pipes[name];
 	if (destination) {
-		debug('direct piping', name, 'to', destination);
-		return context.start(destination, taskResult);
-	}
-
-	var destination = context.mapPipes[name];
-	if (destination) {
-		debug('map piping', name, 'to', destination);
-		return taskResult.map(function resultItemMapper (item) {
-			return context.start(destination, item);
-		});
-	}
-
-	var destination = context.spreadPipes[name];
-	if (destination) {
-		debug('spread piping', name, 'to', destination);
-		return taskResult.map(function resultItemMapper (item, index) {
-			return context.start(destination[index], item);
-		});	
+		return destination.run(taskResult);
 	}
 }
-
-module.exports = Joba;
 
 function isFunctionWithArity (instance, arity) {
 	return typeof instance === 'function' && instance.length === arity;

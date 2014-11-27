@@ -1,6 +1,6 @@
 {
   "name": "joba",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Simple job (task) scheduler (manager).",
   "main": "index.js",
   "scripts": {
