@@ -1,4 +1,5 @@
 var _ = require('lodash');
+var debug = require('debug')('joba');
 
 function Pipe (joba, source, destination) {
 	this.joba = joba;
