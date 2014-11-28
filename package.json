@@ -1,10 +1,9 @@
 {
   "name": "joba",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "Simple job (task) scheduler (manager).",
   "main": "index.js",
-  "scripts": {
-  },
+  "scripts": {},
   "repository": {
     "type": "git",
     "url": "git://github.com/titarenko/joba.git"
@@ -22,6 +21,7 @@
   },
   "homepage": "https://github.com/titarenko/joba",
   "dependencies": {
+    "bluebird": "^2.3.11",
     "cron": "^1.0.5",
     "debug": "^2.1.0",
     "q": "^1.0.1"

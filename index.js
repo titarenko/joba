@@ -59,7 +59,7 @@ Joba.prototype.handle = function handle (name, handler, exitOnFailure, logParams
 		try {
 			var successHandler = buildTaskSuccessHandler(context, name, worklogItemPromise, ack);
 			var errorHandler = buildTaskFailureHandler(context, name, params, logParams, worklogItemPromise, exitOnFailure, ack);
-			handler(params).done(successHandler, errorHandler);
+			Promise.resolve(handler(params)).done(successHandler, errorHandler);
 		} catch (error) {
 			error = error && (error.stack || error.toString());
 			debug('prematurely failed running', name, error);
