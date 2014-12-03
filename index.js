@@ -48,17 +48,32 @@ Joba.prototype.pipe = function pipe (source, destination) {
 };
 
 Joba.prototype.handle = function handle (name, handler, exitOnFailure, logParams) {
+	var options = {
+		exitOnFailure: false,
+		logParams: undefined,
+		concurrency: 1
+	};
+
+	if (typeof exitOnFailure === 'object') {
+		for (var key in exitOnFailure) {
+			options[key] = exitOnFailure[key];
+		}
+	} else {
+		options.exitOnFailure = exitOnFailure;
+		options.logParams = logParams;
+	}
+
 	var context = this;
-	return context.bus.subscribe(name, function internalTaskHandler (params, ack) {
+	return context.bus.subscribe(name, options.concurrency, function internalTaskHandler (params, ack) {
 		debug('running', name);
 		var worklogItemPromise = context.persistence.createWorklogItem({
 			name: name,
 			started_at: new Date(),
-			params: logParams === true ? params : null
+			params: options.logParams === true ? params : null
 		});
 		try {
 			var successHandler = buildTaskSuccessHandler(context, name, worklogItemPromise, ack);
-			var errorHandler = buildTaskFailureHandler(context, name, params, logParams, worklogItemPromise, exitOnFailure, ack);
+			var errorHandler = buildTaskFailureHandler(context, name, params, options.logParams, worklogItemPromise, options.exitOnFailure, ack);
 			Promise.resolve(handler(params)).done(successHandler, errorHandler);
 		} catch (error) {
 			error = error && (error.stack || error.toString());

@@ -78,7 +78,21 @@ Starts immediate task execution.
 
 ### handle(name, handler[, exitOnFailure][, logParams])
 
-Specifies task handler (must return promise). If `exitOnFailure` is `true`, then app will exit with code `75` (temporary failure), allowing you to implement restart-on-error management policy for worker app. If `logParams` is `true` then params will be saved in the corresponding work log record, if `logParams` is omitted, then logging will happen only on error, otherwise (if `logParams === false`) no logging will happen at all.
+Deprecated (use overload with options as last param).
+
+Specifies task handler. If `exitOnFailure` is `true`, then app will exit with code `75` (temporary failure), allowing you to implement restart-on-error management policy for worker app. If `logParams` is `true` then params will be saved in the corresponding work log record, if `logParams` is omitted, then logging will happen only on error, otherwise (if `logParams === false`) no logging will happen at all.
+
+### handle(name, handler[, options])
+
+Specifies task handler.
+
+Options:
+
+name | purpose
+--- | ---
+exitOnFailure | if `true`, then app will exit with code `75` (temporary failure), allowing you to implement restart-on-error management policy for worker app
+logParams | if `true` then params will be saved in the corresponding work log record, if omitted, then logging will happen only on error, otherwise (if `false`) no logging will happen at all
+concurrency | maximal number of tasks handled simultaneously
 
 ### pipe(source, destination)
 
